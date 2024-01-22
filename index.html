@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Image Classifier</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+</head>
+<body>
+    <h1>Image Classifier</h1>
+    <img id="image" src="" alt="Input Image" />
+
+    <script>
+        let model;
+        const image = document.getElementById('image');
+        const options = {
+            modelPath: 'models/default-f16/model.json', // Update this path to your model
+            maxResults: 50,
+            iouThreshold: 0.5,
+            minScore: 0.38,
+            outputNodes: ['output1', 'output2', 'output3']
+        };
+
+        // Update this array with all your class labels
+        const labels = [
+            'exposed anus', 'exposed armpits', 'belly', 'exposed belly', 
+            'buttocks', 'exposed buttocks', 'female face', 'male face', 
+            'feet', 'exposed feet', 'breast', 'exposed breast', 
+            'vagina', 'exposed vagina', 'male breast', 'exposed male breast'
+        ];
+
+        async function processImage() {
+            const inputTensor = tf.browser.fromPixels(image);
+            const resizedTensor = tf.image.resizeBilinear(inputTensor, [inputTensor.shape[0], inputTensor.shape[1]], true);
+            const castedTensor = tf.cast(resizedTensor, 'float32');
+            const batchTensor = tf.expandDims(castedTensor, 0);
+
+            const [boxes, scores, classes] = await model.executeAsync(batchTensor, options.outputNodes);
+            const results = await processPrediction(scores, classes);
+            displayResults(results);
+
+            tf.dispose([inputTensor, resizedTensor, castedTensor, batchTensor, boxes, scores, classes]);
+        }
+
+        async function processPrediction(scoresTensor, classesTensor) {
+            const scores = await scoresTensor.data();
+            const classes = await classesTensor.data();
+            const results = {};
+
+            for (let i = 0; i < scores.length; i++) {
+                const label = labels[classes[i]];
+                if (!results[label]) {
+                    results[label] = 0;
+                }
+                // Accumulate scores for the same label
+                results[label] += scores[i];
+            }
+
+            // Normalize scores to percentages
+            const maxScore = Math.max(...Object.values(results));
+            for (const label in results) {
+                results[label] = (results[label] / maxScore) * 100;
+            }
+
+            return results;
+        }
+
+        function displayResults(results) {
+            console.log("Class Labels with Percentages Above 40%:");
+            Object.keys(results).forEach((label) => {
+                const percentage = results[label].toFixed(2);
+                if (results[label] > 40) {
+                    console.log(`${label}: ${percentage}%`);
+                }
+            });
+        }
+
+        async function main() {
+            model = await tf.loadGraphModel(options.modelPath);
+
+            // Fetch the image using JavaScript to set CORS headers
+            fetch('https://hotpotmedia.s3.us-east-2.amazonaws.com/8-4nYXS5cGxTyELnl.png')
+                .then(response => response.blob())
+                .then(blob => {
+                    const imageUrl = URL.createObjectURL(blob);
+                    image.src = imageUrl;
+                    image.onload = processImage;
+                })
+                .catch(error => console.error('Error fetching image:', error));
+        }
+
+        window.onload = main;
+    </script>
+</body>
+</html>
+
