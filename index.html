@@ -78,7 +78,7 @@
             model = await tf.loadGraphModel(options.modelPath);
 
             // Fetch the image using JavaScript to set CORS headers
-            fetch('https://hotpotmedia.s3.us-east-2.amazonaws.com/8-4nYXS5cGxTyELnl.png')
+            fetch('https://hotpotmedia.s3.us-east-2.amazonaws.com/8-DJokMVny3F6oOZE.png')
                 .then(response => response.blob())
                 .then(blob => {
                     const imageUrl = URL.createObjectURL(blob);
